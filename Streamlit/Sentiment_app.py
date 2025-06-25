@@ -2,7 +2,6 @@ import streamlit as st
 import pickle
 import re, regex
 import numpy as np
-from underthesea import word_tokenize, pos_tag, sent_tokenize
 from scipy.sparse import csr_matrix, hstack
 
 # ========== Load mô hình và vectorizer từ .pkl ==========
@@ -39,15 +38,7 @@ negative_emojis = load_list_from_txt("Sentiment_Models/negative_emoji.txt")
 
 # ========== Tiền xử lý ==========
 def covert_unicode(txt):
-    dicchar = {
-        "à":"à", "á":"á", "ả":"ả", "ã":"ã", "ạ":"ạ", "â":"â", "ầ":"ầ", "ấ":"ấ", "ẩ":"ẩ", "ẫ":"ẫ", "ậ":"ậ",
-        "ă":"ă", "ằ":"ằ", "ắ":"ắ", "ẳ":"ẳ", "ẵ":"ẵ", "ặ":"ặ", "è":"è", "é":"é", "ẻ":"ẻ", "ẽ":"ẽ", "ẹ":"ẹ",
-        "ê":"ê", "ề":"ề", "ế":"ế", "ể":"ể", "ễ":"ễ", "ệ":"ệ", "ì":"ì", "í":"í", "ỉ":"ỉ", "ĩ":"ĩ", "ị":"ị",
-        "ò":"ò", "ó":"ó", "ỏ":"ỏ", "õ":"õ", "ọ":"ọ", "ô":"ô", "ồ":"ồ", "ố":"ố", "ổ":"ổ", "ỗ":"ỗ", "ộ":"ộ",
-        "ơ":"ơ", "ờ":"ờ", "ớ":"ớ", "ở":"ở", "ỡ":"ỡ", "ợ":"ợ", "ù":"ù", "ú":"ú", "ủ":"ủ", "ũ":"ũ", "ụ":"ụ",
-        "ư":"ư", "ừ":"ừ", "ứ":"ứ", "ử":"ử", "ữ":"ữ", "ự":"ự", "ỳ":"ỳ", "ý":"ý", "ỷ":"ỷ", "ỹ":"ỹ", "ỵ":"ỵ"
-    }
-    return ''.join(dicchar.get(c, c) for c in txt)
+    return txt.encode('utf-8').decode('utf-8')
 
 def normalize_repeated_characters(text):
     return re.sub(r'(.)\1+', r'\1', text)
@@ -55,29 +46,14 @@ def normalize_repeated_characters(text):
 def process_text(text):
     document = text.lower().replace("’", '')
     document = regex.sub(r'\.+', ".", document)
-    new_sentence = ''
-    for sentence in sent_tokenize(document):
-        sentence = ''.join(emoji_dict.get(c, c) for c in sentence)
-        sentence = ' '.join(teen_dict.get(w, w) for w in sentence.split())
-        pattern = r'(?i)\b[a-záàảãạăắằẳẵặâấầẩẫậéèẻẽẹêếềểễệóòỏõọôốồổỗộơớờởỡợíìỉĩịúùủũụưứừửữựýỳỷỹỵđ]+\b'
-        sentence = ' '.join(regex.findall(pattern, sentence))
-        sentence = ' '.join(w for w in sentence.split() if w not in wrong_lst)
-        new_sentence += sentence + '. '
-    return regex.sub(r'\s+', ' ', new_sentence).strip()
-
-def process_postag_thesea(text):
-    new_document = ''
-    for sentence in sent_tokenize(text):
-        sentence = sentence.replace('.', '')
-        lst_word_type = ['N','Np','A','AB','V','VB','VY','R']
-        words = word_tokenize(sentence, format='text')
-        tagged = pos_tag(words)
-        filtered = ' '.join(w for w, t in tagged if t in lst_word_type)
-        new_document += filtered + ' '
-    return regex.sub(r'\s+', ' ', new_document).strip()
-
-def remove_stopword(text):
-    return regex.sub(r'\s+', ' ', ' '.join(w for w in text.split() if w not in stopwords_lst)).strip()
+    for k, v in emoji_dict.items():
+        document = document.replace(k, f" {v} ")
+    for k, v in teen_dict.items():
+        document = re.sub(rf"\b{k}\b", v, document)
+    pattern = r'(?i)\b[a-záàảãạăắằẳẵặâấầẩẫậéèẻẽẹêếềểễệóòỏõọôốồổỗộơớờởỡợíìỉĩịúùủũụưứừửữựýỳỷỹỵđ]+\b'
+    words = regex.findall(pattern, document)
+    words = [w for w in words if w not in wrong_lst and w not in stopwords_lst]
+    return " ".join(words)
 
 def count_sentiment_items(text):
     text = str(text).lower()
@@ -92,8 +68,6 @@ def predict_sentiment(text_input):
     text = covert_unicode(text_input)
     text = normalize_repeated_characters(text)
     text = process_text(text)
-    text = process_postag_thesea(text)
-    text = remove_stopword(text)
 
     tfidf_vector = vectorizer.transform([text])
     pos_word, neg_word, pos_emoji, neg_emoji = count_sentiment_items(text_input)
