@@ -1,4 +1,5 @@
 streamlit
+underthesea
 scikit-learn
 scipy
 regex
